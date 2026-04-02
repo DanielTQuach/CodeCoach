@@ -1,7 +1,11 @@
 import * as vscode from "vscode";
+
 export function activate(context: vscode.ExtensionContext): void {
-  console.log("CodeCoach extension is now active");
+    const disposable = vscode.commands.registerCommand("codecoach.hello", () => {
+        vscode.window.showInformationMessage("CodeCoach says hello!");
+    });
+
+    context.subscriptions.push(disposable);
 }
-export function deactivate(): void {
-  console.log("CodeCoach extension deactivated");
-}
+
+export function deactivate(): void { }
