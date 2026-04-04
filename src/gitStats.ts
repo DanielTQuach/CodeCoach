@@ -60,3 +60,103 @@ async function resolveLocalBaseBranch(
   }
   return null;
 }
+
+export async function getBranchDiffStats(
+  cwd: string,
+  mainBranchNames: string[]
+): Promise<BranchDiffStats> {
+  const empty: BranchDiffStats = {
+    baseBranch: null,
+    mergeBase: null,
+    filesChanged: 0,
+    linesChanged: 0,
+    insertions: 0,
+    deletions: 0,
+    currentBranch: null,
+    isDirty: false,
+    error: null,
+  };
+
+  try {
+    await runGit(cwd, ["rev-parse", "--is-inside-work-tree"]);
+  } catch {
+    return { ...empty, error: "Not a git repository" };
+  }
+
+  let currentBranch: string | null = null;
+  try {
+    const { stdout } = await runGit(cwd, [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ]);
+    currentBranch = stdout.trim() || null;
+  } catch {
+    currentBranch = null;
+  }
+
+  const baseBranch = await resolveLocalBaseBranch(cwd, mainBranchNames);
+  if (!baseBranch) {
+    return {
+      ...empty,
+      currentBranch,
+      error: `No base branch found (tried: ${mainBranchNames.join(", ")})`,
+    };
+  }
+
+  let mergeBase: string | null = null;
+  try {
+    const { stdout } = await runGit(cwd, ["merge-base", "HEAD", baseBranch]);
+    mergeBase = stdout.trim() || null;
+  } catch {
+    mergeBase = null;
+  }
+
+  if (!mergeBase) {
+    return {
+      ...empty,
+      baseBranch,
+      currentBranch,
+      error: "Could not compute merge-base with base branch",
+    };
+  }
+
+  try {
+    const { stdout: wtOut } = await runGit(cwd, [
+      "diff",
+      "--shortstat",
+      mergeBase,
+    ]);
+    const workingTree = parseShortstat(wtOut);
+
+    const linesChanged = workingTree.insertions + workingTree.deletions;
+    let isDirty = false;
+    try {
+      const { stdout: statusOut } = await runGit(cwd, ["status", "--porcelain"]);
+      isDirty = statusOut.trim().length > 0;
+    } catch {
+      isDirty = true;
+    }
+
+    return {
+      baseBranch,
+      mergeBase,
+      filesChanged: workingTree.files,
+      linesChanged,
+      insertions: workingTree.insertions,
+      deletions: workingTree.deletions,
+      currentBranch,
+      isDirty,
+      error: null,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return {
+      ...empty,
+      baseBranch,
+      mergeBase,
+      currentBranch,
+      error: message,
+    };
+  }
+}
