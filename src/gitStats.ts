@@ -160,3 +160,25 @@ export async function getBranchDiffStats(
     };
   }
 }
+
+export async function getLatestCommitInfo(cwd: string): Promise<CommitInfo> {
+  try {
+    const { stdout } = await runGit(cwd, [
+      "log",
+      "-1",
+      "--pretty=format:%H%x00%s%x00%P",
+    ]);
+    const parts = stdout.trim().split("\0");
+    const hash = parts[0] || null;
+    const subject = parts[1] || null;
+    const parents = (parts[2] || "").trim().split(/\s+/).filter(Boolean);
+    const isMerge = parents.length > 1;
+    return { hash, subject, isMerge };
+  } catch {
+    return { hash: null, subject: null, isMerge: false };
+  }
+}
+
+export function workspaceFolderPath(folder: vscode.WorkspaceFolder): string {
+  return folder.uri.fsPath;
+}
