@@ -1,5 +1,12 @@
 import * as vscode from "vscode";
-import { getBranchDiffStats } from "./gitStats";
+import { getConfig } from "./config";
+import { 
+    getBranchDiffStats,
+    getLatestCommitInfo,
+} from "./gitStats";
+import { CodeCoachStatusBar } from "./statusBar";
+
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 function getWorkspaceRoot(): string | undefined {
     const editor = vscode.window.activeTextEditor;
@@ -11,70 +18,94 @@ function getWorkspaceRoot(): string | undefined {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-    const disposable = vscode.commands.registerCommand("codecoach.hello", () => {
-        vscode.window.showInformationMessage("CodeCoach says hello!");
-    });
-    context.subscriptions.push(disposable);
+    const statusBar = new CodeCoachStatusBar();
+    const output = vscode.window.createOutputChannel("CodeCoach");
 
-    const item = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Left,
-        100
-    );
-    item.text = "$(pulse) CodeCoach";
-    item.command = "codecoach.hello";
-
-    const enabled = vscode.workspace
-        .getConfiguration("codecoach")
-        .get<boolean>("enabled", true);
-    if (enabled) {
-        item.show();
-    }
-
-    context.subscriptions.push(item);
-
-    const refresh = async (): Promise<void> => {
+    const runRefresh = async (): Promise<void> => {
+        const config = getConfig();
         const root = getWorkspaceRoot();
         if (!root) {
-            item.text = "$(info) CodeCoach: no folder";
-            item.show();
+            statusBar.update(
+                {
+                    baseBranch: null,
+                    mergeBase: null,
+                    filesChanged: 0,
+                    linesChanged: 0,
+                    insertions: 0,
+                    deletions: 0,
+                    currentBranch: null,
+                    isDirty: false,
+                    error: "Open a folder in VS Code to track git changes",
+                },
+                config
+            );
             return;
         }
 
-        const stats = await getBranchDiffStats(root, ["main", "master"]);
-        
-        if (stats.error) {
-            item.text = "$(warning) CodeCoach: error";
-            item.tooltip = stats.error;
-        } else {
-            item.text = `$(pulse) ${stats.linesChanged}Δ ${stats.filesChanged}f`;
-            item.tooltip = `vs ${stats.baseBranch}\nbranch: ${stats.currentBranch}`;
+        const stats = await getBranchDiffStats(root, config.mainBranchNames);
+        statusBar.update(stats, config);
+    };
+
+    const scheduleRefresh = (): void => {
+        if (refreshTimer) {
+            clearTimeout(refreshTimer);
         }
-        item.show();
+        refreshTimer = setTimeout(() => {
+            void runRefresh();
+        }, 250);
     };
 
     context.subscriptions.push(
-        vscode.workspace.onDidSaveTextDocument(() => {
-            void refresh();
-        })
-    )
-
-    void refresh();
+        statusBar,
+        output,
+        vscode.workspace.onDidSaveTextDocument(() => scheduleRefresh()),
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration("codecoach")) {
+                scheduleRefresh();
+            }
+        }),
+        vscode.window.onDidChangeActiveTextEditor(() => scheduleRefresh()),
+        vscode.workspace.onDidChangeWorkspaceFolders(() => scheduleRefresh())
+    );
 
     context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration((e) => {
-            if (!e.affectsConfiguration("codecoach.enabled")) {
+        vscode.commands.registerCommand("codecoach.refresh", async () => {
+            await runRefresh();
+        }),
+        vscode.commands.registerCommand("codecoach.showDetails", async () => {
+            const config = getConfig();
+            const root = getWorkspaceRoot();
+            output.clear();
+            output.appendLine("CodeCoach - change details");
+            output.appendLine("");
+            if (!root) {
+                output.appendLine("No workspace folder.");
+                output.show();
                 return;
             }
-            const on = vscode.workspace
-                .getConfiguration("codecoach")
-                .get<boolean>("enabled", true);
-            if (on) {
-                item.show();
+            const stats = await getBranchDiffStats(root, config.mainBranchNames);
+            if (stats.error) {
+                output.appendLine(stats.error);
             } else {
-                item.hide();
+                output.appendLine(`Workspace: ${root}`);
+                output.appendLine(`Base branch: ${stats.baseBranch}`);
+                output.appendLine(`Current branch: ${stats.currentBranch}`);
+                output.appendLine(`Merge-base: ${stats.mergeBase}`);
+                output.appendLine(
+                `Lines: ${stats.linesChanged} (+${stats.insertions} / -${stats.deletions})`
+                );
+                output.appendLine(`Files: ${stats.filesChanged}`);
+                output.appendLine(`Working tree dirty: ${stats.isDirty}`);
+                output.appendLine("");
+                output.appendLine(
+                `Latest commit: ${commit.hash?.slice(0, 7) ?? "?"} ${commit.subject ?? ""}`
+                );
             }
+            output.show(true);
         })
     );
+
+    void runRefresh();
 }
 
 export function deactivate(): void { }
