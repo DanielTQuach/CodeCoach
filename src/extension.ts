@@ -5,7 +5,7 @@ import {
     getLatestCommitInfo,
 } from "./gitStats";
 import { CodeCoachStatusBar } from "./statusBar";
-import { get } from "http";
+import { NudgeManager } from "./nudges";
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -20,6 +20,7 @@ function getWorkspaceRoot(): string | undefined {
 
 export function activate(context: vscode.ExtensionContext): void {
     const statusBar = new CodeCoachStatusBar();
+    const nudges = new NudgeManager(context);
     const output = vscode.window.createOutputChannel("CodeCoach");
 
     const runRefresh = async (): Promise<void> => {
@@ -44,7 +45,9 @@ export function activate(context: vscode.ExtensionContext): void {
         }
 
         const stats = await getBranchDiffStats(root, config.mainBranchNames);
+        const commit = await getLatestCommitInfo(root);
         statusBar.update(stats, config);
+        await nudges.evaluate(stats, commit.subject, commit.hash, isMerge, config);
     };
 
     const scheduleRefresh = (): void => {
