@@ -9,7 +9,7 @@ export interface CodeCoachConfig {
     mainBranchNames: string[];
     commitMessageMinLength: number;
     nudgeCooldownMinutes: number;
-    statusBarAllignment: "left" | "right";
+    statusBarAlignment: "left" | "right";
     statusBarPriority: number;
 }
 
@@ -22,7 +22,7 @@ export function getConfig(): CodeCoachConfig {
         mainBranchNames: c.get<string[]>("mainBranchNames", ["main", "master"]),
         commitMessageMinLength: c.get<number>("commitMessageMinLength", 10),
         nudgeCooldownMinutes: c.get<number>("nudgeCooldownMinutes", 45),
-        statusBarAllignment: c.get<"left" | "right">("statusBarAllignment", "left"),
+        statusBarAlignment: c.get<"left" | "right">("statusBarAllignment", "left"),
         statusBarPriority: c.get<number>("statusBarPriority", 100),
     };
 }
