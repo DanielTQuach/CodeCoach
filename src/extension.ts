@@ -108,4 +108,8 @@ export function activate(context: vscode.ExtensionContext): void {
     void runRefresh();
 }
 
-export function deactivate(): void { }
+export function deactivate(): void {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
+}
