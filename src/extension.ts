@@ -5,6 +5,7 @@ import {
     getLatestCommitInfo,
 } from "./gitStats";
 import { CodeCoachStatusBar } from "./statusBar";
+import { get } from "http";
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -84,6 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
             const stats = await getBranchDiffStats(root, config.mainBranchNames);
+            const commit = await getLatestCommitInfo(root);
             if (stats.error) {
                 output.appendLine(stats.error);
             } else {
