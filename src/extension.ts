@@ -1,11 +1,12 @@
 import * as vscode from "vscode";
 import { getConfig } from "./config";
-import { 
+import {
     getBranchDiffStats,
     getLatestCommitInfo,
 } from "./gitStats";
 import { CodeCoachStatusBar } from "./statusBar";
 import { NudgeManager } from "./nudges";
+import { watch } from "fs";
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -47,7 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const stats = await getBranchDiffStats(root, config.mainBranchNames);
         const commit = await getLatestCommitInfo(root);
         statusBar.update(stats, config);
-        await nudges.evaluate(stats, commit.subject, commit.hash, isMerge, config);
+        await nudges.evaluate(stats, commit.subject, commit.hash, commit.isMerge, config);
     };
 
     const scheduleRefresh = (): void => {
@@ -71,6 +72,9 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.onDidChangeActiveTextEditor(() => scheduleRefresh()),
         vscode.workspace.onDidChangeWorkspaceFolders(() => scheduleRefresh())
     );
+
+    watchGitMetadata(context, scheduleRefresh);
+    subscribeBuiltInGit(context, scheduleRefresh);
 
     context.subscriptions.push(
         vscode.commands.registerCommand("codecoach.refresh", async () => {
@@ -97,13 +101,13 @@ export function activate(context: vscode.ExtensionContext): void {
                 output.appendLine(`Current branch: ${stats.currentBranch}`);
                 output.appendLine(`Merge-base: ${stats.mergeBase}`);
                 output.appendLine(
-                `Lines: ${stats.linesChanged} (+${stats.insertions} / -${stats.deletions})`
+                    `Lines: ${stats.linesChanged} (+${stats.insertions} / -${stats.deletions})`
                 );
                 output.appendLine(`Files: ${stats.filesChanged}`);
                 output.appendLine(`Working tree dirty: ${stats.isDirty}`);
                 output.appendLine("");
                 output.appendLine(
-                `Latest commit: ${commit.hash?.slice(0, 7) ?? "?"} ${commit.subject ?? ""}`
+                    `Latest commit: ${commit.hash?.slice(0, 7) ?? "?"} ${commit.subject ?? ""}`
                 );
             }
             output.show(true);
@@ -113,8 +117,68 @@ export function activate(context: vscode.ExtensionContext): void {
     void runRefresh();
 }
 
+/* for when git changes without files being saved */
+function watchGitMetadata(
+    context: vscode.ExtensionContext,
+    onChange: () => void
+): void {
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        const head = new vscode.RelativePattern(folder, ".git/HEAD");
+        const refs = new vscode.RelativePattern(folder, ".git/refs/heads/**");
+        const w1 = vscode.workspace.createFileSystemWatcher(head);
+        const w2 = vscode.workspace.createFileSystemWatcher(refs);
+        w1.onDidChange(() => onChange());
+        w1.onDidCreate(() => onChange());
+        w2.onDidChange(() => onChange());
+        w2.onDidCreate(() => onChange());
+        w2.onDidDelete(() => onChange());
+        context.subscriptions.push(w1, w2);
+    }
+}
+
+function subscribeBuiltInGit(
+    context: vscode.ExtensionContext,
+    onChange: () => void
+): void {
+    const ext = vscode.extensions.getExtension("vscode.git");
+    if (!ext) {
+        return;
+    }
+    void ext.activate().then(() => {
+        const api = ext.exports?.getAPI?.(1) as |
+        {
+            repositories: unknown[];
+            onDidOpenRepository?: (
+                cb: (repo: unknown) => void
+            ) => vscode.Disposable;
+        }
+            | undefined;
+        if (!api) {
+            return;
+        }
+        const attach = (repo: unknown): void => {
+            const r = repo as {
+                onDidChange?: (cb: () => void) => vscode.Disposable | void;
+            };
+            if (!r.onDidChange) {
+                return;
+            }
+            const sub = r.onDidChange(() => onChange());
+            if (sub) {
+                context.subscriptions.push(sub);
+            }
+        };
+        for (const repo of api.repositories) {
+            attach(repo);
+        }
+        if (api.onDidOpenRepository) {
+            context.subscriptions.push(api.onDidOpenRepository(attach));
+        }
+    });
+}
+
 export function deactivate(): void {
-  if (refreshTimer) {
-    clearTimeout(refreshTimer);
-  }
+    if (refreshTimer) {
+        clearTimeout(refreshTimer);
+    }
 }
