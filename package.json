@@ -4,6 +4,7 @@
     "description": "Collaboration nudges while coding.",
     "version": "0.0.1",
     "publisher": "your-publisher-id",
+    "icon": "media/icon.png",
     "engines": {
         "vscode": "^1.85.0"
     },
