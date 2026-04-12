@@ -1,35 +1,43 @@
 {
-    "name": "codecoach",
-    "displayName": "CodeCoach",
-    "description": "Collaboration nudges while coding.",
-    "version": "0.0.1",
-    "publisher": "your-publisher-id",
-    "icon": "media/icon.png",
-    "engines": {
-        "vscode": "^1.85.0"
-    },
-    "categories": [
-        "Other"
-    ],
-    "activationEvents": [
-        "onStartupFinished"
-    ],
-    "main": "./out/extension.js",
-    "contributes": {
-        "commands": [
-            {
-                "command": "codecoach.hello",
-                "title": "CodeCoach: Hello"
-            }
-        ]
-    },
-    "scripts": {
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./"
-    },
-    "devDependencies": {
-        "@types/vscode": "^1.85.0",
-        "@types/node": "^20.11.0",
-        "typescript": "^5.4.0"
-    }
+  "name": "codecoach",
+  "displayName": "CodeCoach",
+  "description": "Collaboration nudges while coding.",
+  "version": "0.0.1",
+  "publisher": "your-publisher-id",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codecoach.hello",
+        "title": "CodeCoach: Hello"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DanielTQuach/CodeCoach"
+  },
+  "bugs": {
+    "url": "https://github.com/DanielTQuach/CodeCoach/issues"
+  },
+  "homepage": "https://github.com/DanielTQuach/CodeCoach#readme"
 }
