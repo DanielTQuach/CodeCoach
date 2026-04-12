@@ -6,6 +6,14 @@ Early in collaborative Git work I optimized for shipping fast and treated one is
 
 **CodeCoach** is a [Visual Studio Code](https://code.visualstudio.com/) extension. It compares your work to a configurable base branch (for example `main` or `master`), shows line and file scope in the status bar with a simple health score, and nudges you while you work when thresholds or commit-message length suggest splitting the change or writing a clearer message.
 
+## Install
+
+Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=daniel-quach.codecoach-me).
+
+In VS Code you can also open the Extensions view, search for **CodeCoach**, or run Quick Open (**Ctrl+P** / **Cmd+P**) and paste:
+
+`ext install daniel-quach.codecoach-me`
+
 ## Features
 
 - **Status bar**: Shows lines changed (Δ), files touched, and a **health score** (0–100) derived from how your diff compares to your warning thresholds. Click the item to open the **CodeCoach** output channel with full details (base branch, merge-base, insertions/deletions, dirty state, latest commit).
